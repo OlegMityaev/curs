@@ -24,6 +24,15 @@ bool operator<(const Point& p1, const Point& p2)
     return i1 < i2;
 }
 
+inline void MyPlayer::init(const GameView& game) {
+    m_width = game.get_settings().field_size.get_width();
+    m_height = game.get_settings().field_size.get_height();
+    m_minx = game.get_settings().field_size.min.x;
+    m_miny = game.get_settings().field_size.min.y;
+    m_maxx = game.get_settings().field_size.max.x;
+    m_maxy = game.get_settings().field_size.max.y;
+}
+
 bool MyPlayer::is_win(const GameView& game, const Mark& value,
     int iter, const int& size_of_field, const bool crosses_cur[], const bool filled_cur[]) const {
     int width = winLength;
@@ -31,7 +40,7 @@ bool MyPlayer::is_win(const GameView& game, const Mark& value,
     int minx, maxx;
     int miny, maxy;
 
-    if (width != game.get_settings().field_size.get_width() || height != game.get_settings().field_size.get_height()) {
+    if (width != m_width || height != m_height) {
         
         maxx = delta;
         minx = -delta;
@@ -39,10 +48,10 @@ bool MyPlayer::is_win(const GameView& game, const Mark& value,
         miny = -delta;
     }
     else {
-        minx = game.get_settings().field_size.min.x;
-        maxx = game.get_settings().field_size.max.x;
-        miny = game.get_settings().field_size.min.y;
-        maxy = game.get_settings().field_size.max.y;
+        minx = m_minx;
+        maxx = m_maxx;
+        miny = m_miny;
+        maxy = m_maxy;
     }
     
     Point move = Point(iter % width + minx, iter / width + miny);
@@ -111,7 +120,7 @@ int MyPlayer::evaluate(const GameView& game, const int& size_of_field, const boo
     int minx, maxx;
     int miny, maxy;
 
-    if (width != game.get_settings().field_size.get_width() || height != game.get_settings().field_size.get_height()) {
+    if (width != m_width || height != m_height) {
         
         maxx = delta;
         minx = -delta;
@@ -119,10 +128,10 @@ int MyPlayer::evaluate(const GameView& game, const int& size_of_field, const boo
         miny = -delta;
     }
     else {
-        minx = game.get_settings().field_size.min.x;
-        maxx = game.get_settings().field_size.max.x;
-        miny = game.get_settings().field_size.min.y;
-        maxy = game.get_settings().field_size.max.y;
+        minx = m_minx;
+        maxx = m_maxx;
+        miny = m_miny;
+        maxy = m_maxy;
     }
 
     auto checkLine = [&](int itStart, int dx, int dy, bool isCross) -> int {
@@ -140,6 +149,7 @@ int MyPlayer::evaluate(const GameView& game, const int& size_of_field, const boo
             else if (filled_cur[iter] && crosses_cur[iter] != isCross) {
                 return 0; // Линия блокирована, оценка 0
             }
+            myCount++;
         }
         return count == winLength ? 100 : lineScore; // Возврат 100 за победную линию
     };
@@ -165,10 +175,6 @@ int MyPlayer::evaluate(const GameView& game, const int& size_of_field, const boo
 }
 
 int MyPlayer::minimax(const GameView& game, bool is_maximizing, int depth, int iter, bool crosses_cur[], bool filled_cur[], const int& size_of_field, int alpha, int beta) {
-    //int width = game.get_settings().field_size.get_width();
-    //int height = game.get_settings().field_size.get_height();
-    //int minx = game.get_settings().field_size.min.x;
-    //int miny = game.get_settings().field_size.min.y;
 
     Mark currentMark = is_maximizing ? myMark : (myMark == Mark::Cross ? Mark::Zero : Mark::Cross);
     Mark otherMark = !is_maximizing ? myMark : (myMark == Mark::Cross ? Mark::Zero : Mark::Cross);
@@ -215,13 +221,14 @@ int MyPlayer::minimax(const GameView& game, bool is_maximizing, int depth, int i
 }
 
 Point MyPlayer::find_best_move_in_square(const GameView& game, const Point& center, bool crosses_cur[], bool filled_cur[], const int& size_of_field, int& bestValue) {
-    int width = game.get_settings().field_size.get_width();
-    int height = game.get_settings().field_size.get_height();
-    int minx = game.get_settings().field_size.min.x;
-    int miny = game.get_settings().field_size.min.y;
-    int maxx = game.get_settings().field_size.max.x;
-    int maxy = game.get_settings().field_size.max.y;
     
+    int minx = m_minx;
+    int maxx = m_maxx;
+    int miny = m_miny;
+    int maxy = m_maxy;
+    int width = m_width;
+    int height = m_height;
+
     int x_start = center.x - delta, x_end = center.x + delta, y_start = center.y - delta, y_end = center.y + delta;
     if (center.x - delta < minx) {
         x_start = minx;
@@ -274,16 +281,19 @@ Point MyPlayer::play(const GameView& game) {
 
     clock_t start = clock(); // для отчета
 
+    init(game);
+
     int size_of_field = game.get_settings().field_size.get_width() * game.get_settings().field_size.get_height();
 
     bool* filled_cur = new bool[size_of_field];
     bool* crosses_cur = new bool[size_of_field];
-    int width = game.get_settings().field_size.get_width();
-    int height = game.get_settings().field_size.get_height();
-    int minx = game.get_settings().field_size.min.x;
-    int miny = game.get_settings().field_size.min.y;
-    int maxx = game.get_settings().field_size.max.x;
-    int maxy = game.get_settings().field_size.max.y;
+
+    int minx = m_minx;
+    int maxx = m_maxx;
+    int miny = m_miny;
+    int maxy = m_maxy;
+    int width = m_width;
+    int height = m_height;
 
     std::map<Point, Mark> occupied_points;
     int moves_count = 0;
@@ -296,10 +306,10 @@ Point MyPlayer::play(const GameView& game) {
             crosses_cur[iter] = (value == Mark::Cross);
             
             if (filled_cur[iter]) {
-                occupied_points[Point(x, y)] = value;
                 moves_count++;
             }
             iter++;
+            occupied_points[Point(x, y)] = value;
         }
     }
 
@@ -312,10 +322,10 @@ Point MyPlayer::play(const GameView& game) {
     if (moves_count == 0) {
         delete[] filled_cur;
         delete[] crosses_cur;
-        return Point(width / 2 + minx, height / 2 + miny);
+        lastMove = Point(width / 2 + minx, height / 2 + miny);
+        return lastMove;
     }
     else if (moves_count == 1) {
-
         for (int y = miny; y <= maxy; ++y) {
             for (int x = minx; x <= maxx; ++x) {
                 if (occupied_points[Point(x, y)] == Mark::None) continue;
@@ -328,7 +338,6 @@ Point MyPlayer::play(const GameView& game) {
                 myCount++;
             }
         }
-        
     }
     else {
         if (size_of_field <= 9) {
@@ -349,11 +358,11 @@ Point MyPlayer::play(const GameView& game) {
         }
         else {
             // Поиск лучшего хода в пределах квадратов 3x3 вокруг занятых клеток
-
             iter = 0;
             for (int y = miny; y <= maxy; ++y) {
                 for (int x = minx; x <= maxx; ++x) {
                     if (occupied_points[Point(x, y)] == Mark::None || occupied_points[Point(x, y)] != myMark) continue;
+                    else if (abs(abs(x) - abs(lastMove.x)) >= 2 || abs(abs(y) - abs(lastMove.y)) >= 2) continue;
                     Point p(x, y);
                     Point move = find_best_move_in_square(game, p, crosses_cur, filled_cur, size_of_field, bestValueNew);
                     if (bestValueNew > bestValue) {
@@ -372,6 +381,7 @@ Point MyPlayer::play(const GameView& game) {
     delete[] crosses_cur;
     clock_t end = clock(); // для отчета
     std::cout << "Time to move: " << (double)(end - start) / CLOCKS_PER_SEC * 1000 << " ms, iterations: " << myCount << std::endl; // для отчета
+    lastMove = bestMove;
     return bestMove;
 }
 

@@ -19,7 +19,7 @@ int main() {
     GameSettings settings = {
         .field_size = {
             .min = {.x = -20, .y = -20},
-            .max = {.x = 20, .y = 20},
+            .max = {.x = 19, .y = 19},
         },
         .max_moves = 0,
         .win_length = 5,
