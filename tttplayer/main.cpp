@@ -38,8 +38,8 @@ int main() {
     /// Adds it to play Xs
     game.set_player(player1);
     /// Create second player
-    RandomPlayer player2("Kolya");
-    //RealPlayer player2("Real2");
+    //RandomPlayer player2("Kolya");
+    RealPlayer player2("Real2");
     //MyPlayer player2("I am");
     /// Adds it to play Os
     game.set_player(player2);
