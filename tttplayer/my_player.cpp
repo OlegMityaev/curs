@@ -193,13 +193,13 @@ int MyPlayer::evaluate(const GameView& game, int depth, const int& size_of_field
             if (crosses_cur[itStart]) {
                 score += checkLine(itStart, 1, 0, true); // Горизонтально
                 score += checkLine(itStart, 0, 1, true); // Вертикально
-                score += checkLine(itStart, 1, 1, true); // Диагональ 
+                score += checkLine(itStart, 1, 1, true); // Диагональ "\"
                 score += checkLine(itStart, 1, -1, true); // Диагональ /
             }
             else {
                 score -= checkLine(itStart, 1, 0, false); // Горизонтально
                 score -= checkLine(itStart, 0, 1, false); // Вертикально
-                score -= checkLine(itStart, 1, 1, false); // Диагональ 
+                score -= checkLine(itStart, 1, 1, false); // Диагональ "\"
                 score -= checkLine(itStart, 1, -1, false); // Диагональ /
             }
         }
@@ -214,9 +214,7 @@ int MyPlayer::minimax(const GameView& game, bool is_maximizing, int depth, int i
     Mark currentMark = is_maximizing ? myMark : (myMark == Mark::Cross ? Mark::Zero : Mark::Cross);
     Mark otherMark = !is_maximizing ? myMark : (myMark == Mark::Cross ? Mark::Zero : Mark::Cross);
     if (is_win(game, otherMark, iter, size_of_field, crosses_cur, filled_cur)) {
-        //return is_maximizing ? -(size_of_field + 1) + depth : size_of_field + 1 - depth;
         return is_maximizing ? -1000 : 1000;
-        //return is_maximizing ? -1000 + depth : 1000 - depth;
     }
     else{
         bool is_draw = true;
@@ -228,7 +226,9 @@ int MyPlayer::minimax(const GameView& game, bool is_maximizing, int depth, int i
         }
         if (is_draw) return 0;
     }
-    if (depth > 0) return evaluate(game, depth, size_of_field, crosses_cur, filled_cur);
+    if (size_of_field >= 25) {
+        if (depth > 0) return evaluate(game, depth, size_of_field, crosses_cur, filled_cur);
+    }
 
     if (is_maximizing) {
         int maxEval = -10000;
@@ -269,7 +269,7 @@ int MyPlayer::minimax(const GameView& game, bool is_maximizing, int depth, int i
 
 Point MyPlayer::play(const GameView& game) {
 
-    clock_t start = clock(); // для отчета
+    clock_t start = clock();
 
     init(game);
 
@@ -278,7 +278,6 @@ Point MyPlayer::play(const GameView& game) {
     bool* filled_cur = new bool[size_of_field];
     bool* crosses_cur = new bool[size_of_field];
 
-    //int moves_count = 0;
     // Инициализация массивов filled_cur и crosses_cur
     int iter = 0;
     for (int y = m_miny; y <= m_maxy; ++y) {
@@ -295,7 +294,7 @@ Point MyPlayer::play(const GameView& game) {
     int bestValueNew = -10000;
     int bestValue = -10000;
     Point bestMove((m_minx + m_maxx) / 2, (m_miny + m_maxy) / 2);
-    if (size_of_field <= 9) {
+    if (size_of_field < 25) {
         for (int i = 0; i < size_of_field; ++i) {
             if (filled_cur[i] == false) {
                 filled_cur[i] = true;
@@ -330,7 +329,7 @@ Point MyPlayer::play(const GameView& game) {
         }
         for (int y = m_miny; y <= m_maxy; ++y) {
             for (int x = m_minx; x <= m_maxx; ++x) {
-                if (filled_cur[iter] == true /* && ((myMark == Mark::Cross && crosses_cur[iter] == true) || myMark == Mark::Zero)*/) {
+                if (filled_cur[iter] == true) {
                     bool* filled_min = new bool[size_min_field];
                     bool* crosses_min = new bool[size_min_field];
                     near_point(Point(x, y), filled_cur, crosses_cur, filled_min, crosses_min);
@@ -372,9 +371,9 @@ Point MyPlayer::play(const GameView& game) {
     }
     delete[] filled_cur;
     delete[] crosses_cur;
-    clock_t end = clock(); // для отчета
+    clock_t end = clock();
     
-    std::cout << "Time for move: " << (double)(end - start) / CLOCKS_PER_SEC * 1000 << " ms, iterations: " << myCount << std::endl; // для отчета
+    std::cout << "Time for move: " << (double)(end - start) / CLOCKS_PER_SEC * 1000 << " ms, iterations: " << myCount << std::endl;
     lastMove = bestMove;
     moves_count += 2;
     system("cls");
