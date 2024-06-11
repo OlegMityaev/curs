@@ -177,7 +177,7 @@ int MyPlayer::evaluate(const GameView& game, int depth, const int& size_of_field
             if (!game.get_state().field->get_current_boundary().is_within(p)) break;
             if (filled_cur[iter] && (crosses_cur[iter] == isCross)) {
                 count++;
-                lineScore += 1; // Более весомый балл за каждую свою метку в линии
+                lineScore += 10; // Более весомый балл за каждую свою метку в линии
             }
             else if (filled_cur[iter] && (crosses_cur[iter] != isCross)) {
                 return 0; // Линия блокирована, оценка 0
@@ -185,7 +185,7 @@ int MyPlayer::evaluate(const GameView& game, int depth, const int& size_of_field
             myCount++;
         }
         
-        return count == winLength ? 10 - depth : lineScore;
+        return count == winLength ? 100 : lineScore;
     };
     
     for (int itStart = 0; itStart < size_of_field; ++itStart) {
@@ -214,8 +214,8 @@ int MyPlayer::minimax(const GameView& game, bool is_maximizing, int depth, int i
     Mark currentMark = is_maximizing ? myMark : (myMark == Mark::Cross ? Mark::Zero : Mark::Cross);
     Mark otherMark = !is_maximizing ? myMark : (myMark == Mark::Cross ? Mark::Zero : Mark::Cross);
     if (is_win(game, otherMark, iter, size_of_field, crosses_cur, filled_cur)) {
-        return is_maximizing ? -(size_of_field + 1) + depth : size_of_field + 1 - depth;
-        //return is_maximizing ? -1000 : 1000;
+        //return is_maximizing ? -(size_of_field + 1) + depth : size_of_field + 1 - depth;
+        return is_maximizing ? -1000 : 1000;
         //return is_maximizing ? -1000 + depth : 1000 - depth;
     }
     else{
@@ -228,7 +228,7 @@ int MyPlayer::minimax(const GameView& game, bool is_maximizing, int depth, int i
         }
         if (is_draw) return 0;
     }
-    //if (depth > 3) return evaluate(game, depth, size_of_field, crosses_cur, filled_cur);
+    if (depth > 0) return evaluate(game, depth, size_of_field, crosses_cur, filled_cur);
 
     if (is_maximizing) {
         int maxEval = -10000;
