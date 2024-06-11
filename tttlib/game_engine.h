@@ -4,6 +4,7 @@
 #include "game_state.h"
 #include "player.h"
 #include "composed_observer.h"
+//#include <iostream>
 
 
 class GameEngine {
@@ -36,6 +37,8 @@ class GameEngine {
     bool _is_move_correct(const Point& move, std::string& reason) const;
     bool _is_winning_move(const Point& move) const;
 
+    void DrawField(GameView& gameView);
+
 public:
     /** Instatiate new game with given settings. */
     GameEngine(const GameSettings& settings);
@@ -43,6 +46,8 @@ public:
      * Instatiate game with given settings and field. This game can be already started.
      */
     GameEngine(const GameView& view);
+
+    
 
     /**
      * Sets player for given `mark`.

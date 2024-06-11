@@ -3,7 +3,6 @@
  */
 #include <cstdlib>
 #include <ctime>
-#include <iostream>
 
 #include "my_player.h"
 #include "game_engine.h"
@@ -18,8 +17,8 @@ int main() {
     /// Create setting for game
     GameSettings settings = {
         .field_size = {
-            .min = {.x = -20, .y = -20},
-            .max = {.x = 19, .y = 19},
+            .min = {.x = -2, .y = -2},
+            .max = {.x = 2, .y = 2},
         },
         .max_moves = 0,
         .win_length = 5,
@@ -39,8 +38,8 @@ int main() {
     game.set_player(player1);
     /// Create second player
     //RandomPlayer player2("Kolya");
-    RealPlayer player2("Real2");
-    //MyPlayer player2("I am");
+    //RealPlayer player2("Real2");
+    MyPlayer player2("I am");
     /// Adds it to play Os
     game.set_player(player2);
     /// Starts game until someone wins.

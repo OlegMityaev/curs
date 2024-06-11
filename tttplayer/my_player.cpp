@@ -1,5 +1,7 @@
 #include "my_player.h"
 #include <cstdlib>
+#include "windows.h"
+
 
 static field_index_t rand_int(field_index_t min, field_index_t max) {
     return min + rand() % (max - min + 1);
@@ -51,8 +53,6 @@ void MyPlayer::near_point(const Point& center, bool filled_cur[], bool crosses_c
     for (int y = y_start; y <= y_end; ++y) {
         for (int x = x_start; x <= x_end; ++x) {
             iter = x + abs(m_minx) + (y + abs(m_miny)) * m_width;
-            //if (iter < m_height * m_width && iter > 0) {
-            //}
             filled_min[help_count] = filled_cur[iter];
             crosses_min[help_count] = crosses_cur[iter];
             help_count++;
@@ -62,12 +62,16 @@ void MyPlayer::near_point(const Point& center, bool filled_cur[], bool crosses_c
 }
 
 inline void MyPlayer::init(const GameView& game) {
+    
     m_width = game.get_settings().field_size.get_width();
     m_height = game.get_settings().field_size.get_height();
     m_minx = game.get_settings().field_size.min.x;
     m_miny = game.get_settings().field_size.min.y;
     m_maxx = game.get_settings().field_size.max.x;
     m_maxy = game.get_settings().field_size.max.y;
+    delta = ((m_height * m_width) > 25) ? 2 : 1; // для ограничения квадратов
+    winLength = delta * 2 + 1; // для определения победы в ограниченном квадрате
+    size_min_field = winLength * winLength;
 }
 
 bool MyPlayer::is_win(const GameView& game, const Mark& value,
@@ -140,18 +144,7 @@ bool MyPlayer::is_win(const GameView& game, const Mark& value,
     return false;
 }
 
-/*
-bool MyPlayer::check_draw(const bool filled[], const int& size_of_field) const {
-    for (int i = 0; i < size_of_field; ++i) {
-        if (!filled[i]) {
-            return false;
-        }
-    }
-    return true;
-}
-*/
-
-int MyPlayer::evaluate(const GameView& game, const int& size_of_field, const bool crosses_cur[], const bool filled_cur[]) {
+int MyPlayer::evaluate(const GameView& game, int depth, const int& size_of_field, const bool crosses_cur[], const bool filled_cur[]) {
     int score = 0;
 
 
@@ -182,31 +175,32 @@ int MyPlayer::evaluate(const GameView& game, const int& size_of_field, const boo
             if (iter >= size_of_field || iter < 0) break;
             Point p = Point(iter % width + minx, iter / width + miny);
             if (!game.get_state().field->get_current_boundary().is_within(p)) break;
-            if (filled_cur[iter] && crosses_cur[iter] == isCross) {
+            if (filled_cur[iter] && (crosses_cur[iter] == isCross)) {
                 count++;
-                lineScore += 10; // Более весомый балл за каждую свою метку в линии
+                lineScore += 1; // Более весомый балл за каждую свою метку в линии
             }
-            else if (filled_cur[iter] && crosses_cur[iter] != isCross) {
+            else if (filled_cur[iter] && (crosses_cur[iter] != isCross)) {
                 return 0; // Линия блокирована, оценка 0
             }
             myCount++;
         }
-        return count == winLength ? 100 : lineScore; // Возврат 100 за победную линию
+        
+        return count == winLength ? 10 - depth : lineScore;
     };
     
-    for (int i = 0; i < size_of_field; ++i) {
-        if (filled_cur[i]) {
-            if (crosses_cur[i]) {
-                score += checkLine(i, 1, 0, true); // Горизонтально
-                score += checkLine(i, 0, 1, true); // Вертикально
-                score += checkLine(i, 1, 1, true); // Диагональ 
-                score += checkLine(i, 1, -1, true); // Диагональ /
+    for (int itStart = 0; itStart < size_of_field; ++itStart) {
+        if (filled_cur[itStart]) {
+            if (crosses_cur[itStart]) {
+                score += checkLine(itStart, 1, 0, true); // Горизонтально
+                score += checkLine(itStart, 0, 1, true); // Вертикально
+                score += checkLine(itStart, 1, 1, true); // Диагональ 
+                score += checkLine(itStart, 1, -1, true); // Диагональ /
             }
             else {
-                score -= checkLine(i, 1, 0, false); // Горизонтально
-                score -= checkLine(i, 0, 1, false); // Вертикально
-                score -= checkLine(i, 1, 1, false); // Диагональ 
-                score -= checkLine(i, 1, -1, false); // Диагональ /
+                score -= checkLine(itStart, 1, 0, false); // Горизонтально
+                score -= checkLine(itStart, 0, 1, false); // Вертикально
+                score -= checkLine(itStart, 1, 1, false); // Диагональ 
+                score -= checkLine(itStart, 1, -1, false); // Диагональ /
             }
         }
     }
@@ -214,16 +208,27 @@ int MyPlayer::evaluate(const GameView& game, const int& size_of_field, const boo
     return score;
 }
 
+
 int MyPlayer::minimax(const GameView& game, bool is_maximizing, int depth, int iter, bool crosses_cur[], bool filled_cur[], const int& size_of_field, int alpha, int beta) {
 
     Mark currentMark = is_maximizing ? myMark : (myMark == Mark::Cross ? Mark::Zero : Mark::Cross);
     Mark otherMark = !is_maximizing ? myMark : (myMark == Mark::Cross ? Mark::Zero : Mark::Cross);
     if (is_win(game, otherMark, iter, size_of_field, crosses_cur, filled_cur)) {
         return is_maximizing ? -(size_of_field + 1) + depth : size_of_field + 1 - depth;
+        //return is_maximizing ? -1000 : 1000;
+        //return is_maximizing ? -1000 + depth : 1000 - depth;
     }
-    else if (moves_count >= size_of_field) return 0;
-    //if (check_draw(filled_cur, size_of_field)) return 0;
-    if (depth > 3) return evaluate(game, size_of_field, crosses_cur, filled_cur);
+    else{
+        bool is_draw = true;
+        for (int i = 0; i < size_of_field; ++i) {
+            if (filled_cur[i] == false) {
+                is_draw = false;
+                break;
+            }
+        }
+        if (is_draw) return 0;
+    }
+    //if (depth > 3) return evaluate(game, depth, size_of_field, crosses_cur, filled_cur);
 
     if (is_maximizing) {
         int maxEval = -10000;
@@ -234,8 +239,8 @@ int MyPlayer::minimax(const GameView& game, bool is_maximizing, int depth, int i
                 int eval = minimax(game, false, depth + 1, i, crosses_cur, filled_cur, size_of_field, alpha, beta);
                 filled_cur[i] = false;
                 crosses_cur[i] = false;
-                maxEval = std::max(maxEval, eval);
-                alpha = std::max(alpha, eval);
+                maxEval = (((maxEval) > (eval)) ? (maxEval) : (eval)) ;
+                alpha = (((alpha) > (eval)) ? (alpha) : (eval));
                 if (beta <= alpha) break;
             }
             myCount++;
@@ -251,8 +256,8 @@ int MyPlayer::minimax(const GameView& game, bool is_maximizing, int depth, int i
                 int eval = minimax(game, true, depth + 1, i, crosses_cur, filled_cur, size_of_field, alpha, beta);
                 filled_cur[i] = false;
                 crosses_cur[i] = false;
-                minEval = std::min(minEval, eval);
-                beta = std::min(beta, eval);
+                minEval = (((minEval) < (eval)) ? (minEval) : (eval));
+                beta = (((beta) < (eval)) ? (beta) : (eval));
                 if (beta <= alpha) break;
             }
             myCount++;
@@ -261,58 +266,6 @@ int MyPlayer::minimax(const GameView& game, bool is_maximizing, int depth, int i
     }
 }
 
-Point MyPlayer::find_best_move_in_square(const GameView& game, const Point& center, bool crosses_cur[], bool filled_cur[], const int& size_of_field, int& bestValue) {
-
-    int x_start = center.x - delta, x_end = center.x + delta, y_start = center.y - delta, y_end = center.y + delta;
-    if (center.x - delta < m_minx) {
-        x_start = m_minx;
-        x_end = x_start + delta * 2;
-    }
-    else if (center.x + delta > m_maxx) {
-        x_end = m_maxx;
-        x_start = x_end - delta * 2;
-    }
-    if (center.y - delta < m_miny) {
-        y_start = m_miny;
-        y_end = y_start + delta * 2;
-    }
-    else if (center.y + delta > m_maxy) {
-        y_end = m_maxy;
-        y_start = y_end - delta * 2;
-    }
-
-    Point bestMove(m_minx, m_miny);
-    
-    for (int i = 0; i < size_of_field; ++i) {
-        if (filled_cur[i] == false) {
-            bestMove = Point(i % m_width + m_minx, i / m_width + m_miny);
-            break;
-        }
-    }
-    int tempBestValue = -10000;
-    for (int y = y_start; y <= y_end; ++y) {
-        for (int x = x_start; x <= x_end; ++x) {
-            int idx = (y + abs(m_miny)) * m_width + (x + abs(m_minx));
-            if (!filled_cur[idx]) {
-                filled_cur[idx] = true;
-                crosses_cur[idx] = (myMark == Mark::Cross);
-                int moveValue = minimax(game, false, 0, idx, crosses_cur, filled_cur, 9, -10000, 10000);
-                filled_cur[idx] = false;
-                crosses_cur[idx] = false;
-                if (moveValue > tempBestValue) {
-                    bestMove = Point(x, y);
-                    tempBestValue = moveValue;
-                }
-            }
-            myCount++;
-        }
-    }
-    if (tempBestValue > bestValue) {
-        bestValue = tempBestValue;
-    }
-
-    return bestMove;
-}
 
 Point MyPlayer::play(const GameView& game) {
 
@@ -322,8 +275,8 @@ Point MyPlayer::play(const GameView& game) {
 
     int size_of_field = game.get_settings().field_size.get_width() * game.get_settings().field_size.get_height();
 
-    bool* filled_cur = new bool[size_of_field]();
-    bool* crosses_cur = new bool[size_of_field]();
+    bool* filled_cur = new bool[size_of_field];
+    bool* crosses_cur = new bool[size_of_field];
 
     //int moves_count = 0;
     // Инициализация массивов filled_cur и crosses_cur
@@ -341,23 +294,72 @@ Point MyPlayer::play(const GameView& game) {
     iter = 0;
     int bestValueNew = -10000;
     int bestValue = -10000;
-    Point bestMove(m_minx, m_miny);
-    // Если поле пустое, ставим ход в центр
-    if (myMark == Mark::Cross && moves_count / 2 == 0) {
+    Point bestMove((m_minx + m_maxx) / 2, (m_miny + m_maxy) / 2);
+    if (size_of_field <= 9) {
+        for (int i = 0; i < size_of_field; ++i) {
+            if (filled_cur[i] == false) {
+                filled_cur[i] = true;
+                crosses_cur[i] = myMark == Mark::Cross ? true : false;
+                int val = minimax(game, false, 0, i, crosses_cur, filled_cur, size_of_field, -10000, 10000);
+                if (val > bestValue) {
+                    bestMove = Point(i % m_width + m_minx, i / m_width + m_miny);
+                    bestValue = val;
+                }
+                filled_cur[i] = false;
+                crosses_cur[i] = false;
+            }
+            myCount++;
+        }
+    }
+    else if (myMark == Mark::Cross && moves_count / 2 == 0) {
         delete[] filled_cur;
         delete[] crosses_cur;
-        lastMove = Point(m_width / 2 + m_minx, m_height / 2 + m_miny);
+        lastMove = bestMove;
         moves_count += 2;
         return lastMove;
     }
-    /*
-    else if (moves_count / 2 == 0) {
+    else {
+        // Поиск лучшего хода в пределах квадратов 3x3 вокруг занятых клеток
         iter = 0;
+        Point move = Point(m_minx, m_miny);
+        for (int i = 0; i < size_of_field; ++i) {
+            if (filled_cur[i] == false) {
+                move = Point(i % m_width + m_minx, i / m_width + m_miny);
+                break;
+            }
+        }
         for (int y = m_miny; y <= m_maxy; ++y) {
             for (int x = m_minx; x <= m_maxx; ++x) {
-                if (filled_cur[iter] == true) {
+                if (filled_cur[iter] == true /* && ((myMark == Mark::Cross && crosses_cur[iter] == true) || myMark == Mark::Zero)*/) {
+                    bool* filled_min = new bool[size_min_field];
+                    bool* crosses_min = new bool[size_min_field];
+                    near_point(Point(x, y), filled_cur, crosses_cur, filled_min, crosses_min);
                     Point p(x, y);
-                    Point move = find_best_move_in_square(game, p, crosses_cur, filled_cur, size_of_field, bestValueNew);
+                    int mid_x = x;
+                    int mid_y = y;
+                    if (x - delta < m_minx) mid_x = m_minx + delta;
+                    if (x + delta > m_maxx) mid_x = m_maxx - delta;
+                    if (y - delta < m_minx) mid_y = m_miny + delta;
+                    if (y + delta > m_maxy) mid_y = m_maxy - delta;
+                    
+                    int temp_iter = 0;
+                    for (int dy = -delta; dy <= delta; ++dy) {
+                        for (int dx = -delta; dx <= delta; ++dx) {
+                            if (filled_min[temp_iter] == false) {
+                                filled_min[temp_iter] = true;
+                                crosses_min[temp_iter] = (myMark == Mark::Cross);
+                                int moveValue = minimax(game, false, 0, temp_iter, crosses_min, filled_min, size_min_field, -10000, 10000);
+                                filled_min[temp_iter] = false;
+                                crosses_min[temp_iter] = false;
+                                if (moveValue > bestValueNew) {
+                                    move = Point(mid_x + dx, mid_y + dy);
+                                    bestValueNew = moveValue;
+                                }  
+                            }
+                            temp_iter++;
+                            myCount++;
+                        }
+                    }
                     if (bestValueNew > bestValue) {
                         bestMove = move;
                         bestValue = bestValueNew;
@@ -368,78 +370,14 @@ Point MyPlayer::play(const GameView& game) {
             }
         }
     }
-    */
-    else {
-        if (size_of_field <= 9) {
-            for (int i = 0; i < size_of_field; ++i) {
-                if (filled_cur[i] == false) {
-                    filled_cur[i] = true;
-                    crosses_cur[i] = myMark == Mark::Cross ? true : false;
-                    int val = minimax(game, false, 0, i, crosses_cur, filled_cur, size_of_field, -10000, 10000);
-                    if (val > bestValue) {
-                        bestMove = Point(i % m_width + m_minx, i / m_width + m_miny);
-                        bestValue = val;
-                    }
-                    filled_cur[i] = false;
-                    crosses_cur[i] = false;
-                }
-                myCount++;
-            }
-        }
-        else {
-            // Поиск лучшего хода в пределах квадратов 3x3 вокруг занятых клеток
-            iter = 0;
-            Point move = Point(m_minx, m_miny);
-            for (int i = 0; i < size_of_field; ++i) {
-                if (filled_cur[i] == false) {
-                    move = Point(i % m_width + m_minx, i / m_width + m_miny);
-                    break;
-                }
-            }
-            for (int y = m_miny; y <= m_maxy; ++y) {
-                for (int x = m_minx; x <= m_maxx; ++x) {
-                    if (filled_cur[iter] == true && crosses_cur[iter] == (myMark == Mark::Cross) && abs(abs(x) - abs(lastMove.x)) < 2 && abs(abs(y) - abs(lastMove.y)) < 2 ) {
-                        bool filled_min[9];
-                        bool crosses_min[9];
-                        near_point(Point(x, y), filled_cur, crosses_cur, filled_min, crosses_min);
-                        Point p(x, y);
-                        int temp_iter = 0;
-                        //Point move = find_best_move_in_square(game, p, crosses_cur, filled_cur, size_of_field, bestValueNew);
-                        for (int dy = -delta; dy <= delta; ++dy) {
-                            for (int dx = -delta; dx <= delta; ++dx) {
-                                if (filled_min[temp_iter] == false) {
-                                    filled_min[temp_iter] = true;
-                                    crosses_min[temp_iter] = (myMark == Mark::Cross);
-                                    //int moveValue = evaluate(game, 25, crosses_min, filled_min);
-                                    int moveValue = minimax(game, false, 0, temp_iter, crosses_min, filled_min, 9, -10000, 10000);
-                                    filled_min[temp_iter] = false;
-                                    crosses_min[temp_iter] = false;
-                                    if (moveValue > bestValueNew) {
-                                        move = Point(x + dx, y +dy);
-                                        bestValueNew = moveValue;
-                                    }  
-                                }
-                                temp_iter++;
-                            }
-                        }
-                        if (bestValueNew > bestValue) {
-                            bestMove = move;
-                            bestValue = bestValueNew;
-                        }
-                    }
-                    myCount++;
-                    iter++;
-                }
-            }
-
-        }
-    }
     delete[] filled_cur;
     delete[] crosses_cur;
     clock_t end = clock(); // для отчета
-    std::cout << "Time to move: " << (double)(end - start) / CLOCKS_PER_SEC * 1000 << " ms, iterations: " << myCount << std::endl; // для отчета
+    
+    std::cout << "Time for move: " << (double)(end - start) / CLOCKS_PER_SEC * 1000 << " ms, iterations: " << myCount << std::endl; // для отчета
     lastMove = bestMove;
     moves_count += 2;
+    system("cls");
     return bestMove;
 }
 
@@ -462,6 +400,7 @@ ENTER:
         std::cout << "Wrong point" << std::endl;
         goto ENTER;
     }
+    system("cls");
     return result;
 }
 

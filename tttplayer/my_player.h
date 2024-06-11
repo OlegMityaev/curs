@@ -2,6 +2,7 @@
 #include <ostream>
 #include "player.h"
 #include <iostream>
+//#include "Windows.h"
 #include <map>
 
 /**
@@ -24,16 +25,16 @@ class MyPlayer : public Player {
     Mark myMark = Mark::None;
     int myCount = 0;
     int moves_count = 0;
-    int delta = 1; // для ограничения квадратов
-    int winLength = delta * 2 + 1; // для определения победы в ограниченном квадрате
+    int delta = 0; // для ограничения квадратов
+    //int winLength = delta * 2 + 1; // для определения победы в ограниченном квадрате
+    int winLength = 0;
+    int size_min_field = 1; 
     int m_width = 0, m_height = 0, m_minx = 0, m_miny = 0, m_maxx = 0, m_maxy = 0;
     Point lastMove = Point(0, 0);
     void near_point(const Point& center, bool filled_cur[], bool crosses_cur[], bool filled_min[], bool crosses_min[]);
     bool is_win(const GameView& game, const Mark& value, int iter, const int& size_of_field, const bool crosses_cur[], const bool filled_cur[]) const;
-    //bool check_draw(const bool filled[], const int& size_of_field) const;
-    int evaluate(const GameView& game, const int& size_of_field, const bool crosses_cur[], const bool filled_cur[]);
+    int evaluate(const GameView& game, int it, const int& size_of_field, const bool crosses_cur[], const bool filled_cur[]);
     int minimax(const GameView& game, bool is_maximizing, int depth, int iter, bool crosses_cur[], bool filled_cur[], const int& size_of_field, int alpha, int beta);
-    Point find_best_move_in_square(const GameView& game, const Point& center, bool crosses_cur[], bool filled_cur[], const int& size_of_field, int& bestValue);
     inline void init(const GameView& game);
 public:
     MyPlayer(const std::string& name) : _name(name) {}

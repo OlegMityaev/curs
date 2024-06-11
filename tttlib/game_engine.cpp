@@ -4,6 +4,12 @@
 
 #include "basic_fields.h"
 
+#include <iomanip>
+
+#include <iostream>
+
+#include "Windows.h"
+
 
 GameEngine::GameEngine(const GameSettings& settings):
     _settings(settings), 
@@ -81,6 +87,49 @@ const Player* GameEngine::get_player(Mark player) const {
 GameView& GameEngine::get_view() { return _view; }
 const GameView& GameEngine::get_view() const { return _view; }
 
+
+void GameEngine::DrawField(GameView& gameView) {
+    Boundary boundaries = gameView.get_settings().field_size;
+    int minX = boundaries.min.x;
+    int maxX = boundaries.max.x;
+    int minY = boundaries.min.y;
+    int maxY = boundaries.max.y;
+    Point pointToDraw;
+    HANDLE handle = GetStdHandle(STD_OUTPUT_HANDLE);
+
+    std::cout << std::endl << std::setw(3) << ' ';
+    for (int i = minX; i <= maxX; i++)
+    {
+        std::cout << std::setw(3) << i;
+    }
+    std::cout << std::endl;
+    for (int j = minY; j <= maxY; j++)
+    {
+        std::cout << std::setw(3) << j;
+
+        for (int i = minX; i <= maxX; i++)
+        {
+            pointToDraw.x = i;
+            pointToDraw.y = j;
+            Mark markToDraw = gameView.get_state().field->get_value(pointToDraw);
+            char charToPrint;
+            if (markToDraw == Mark::Cross) {
+                SetConsoleTextAttribute(handle, 4);
+                charToPrint = 'X';
+            }
+            else if (markToDraw == Mark::Zero) {
+                SetConsoleTextAttribute(handle, 2);
+                charToPrint = 'O';
+            }
+            else charToPrint = '-';
+            std::cout << std::setw(3) << charToPrint;
+            SetConsoleTextAttribute(handle, 7);
+        }
+        std::cout << std::endl;
+    }
+}
+
+
 Mark GameEngine::play_game(size_t max_moves) {
     if (_state.is_finished) return _state.current_move;
 
@@ -100,7 +149,7 @@ Mark GameEngine::play_game(size_t max_moves) {
     for (size_t i = 0; 
             max_moves == 0 || i < max_moves; 
             ++i, ++_state.number_of_moves) {
-
+        
         if (_state.number_of_moves >= _settings.max_moves) {
             _observers.notify(_view, DrawEvent::make("Max moves limit reached"));
             _state.is_finished = true;
@@ -117,9 +166,13 @@ Mark GameEngine::play_game(size_t max_moves) {
             : Mark::Cross;
 
         Point move;
-
+        
+        
         try {
+            clock_t start = clock();
             move = player_to_move.play(_view);
+            clock_t end = clock();
+            std::cout << "Time for move: " << (double)(end - start) / CLOCKS_PER_SEC * 1000 << " ms" << std::endl; // для отчета
         } 
         catch (const PlayerMoveException& exp) {
             disqualification_reason = exp.reason;
@@ -139,12 +192,17 @@ Mark GameEngine::play_game(size_t max_moves) {
         _state.field->set_value(move, _state.current_move);
         _observers.notify(_view, MoveEvent::make(move, _state.current_move));
 
+        
+        DrawField(get_view());
+        Sleep(1000);
+        
+
         if (_is_winning_move(move)) {
             _observers.notify(_view, WinEvent::make(_state.current_move));
             _state.is_finished = true;
             break;
         }
-
+        
         _state.current_move = other_mark;
     }
     return _state.current_move;
@@ -161,6 +219,7 @@ bool GameEngine::_is_move_correct(const Point& move, std::string& reason) const 
     }
     return true;
 }
+
 
 bool GameEngine::_is_winning_move(const Point& move) const {
     const Mark mark = _state.field->get_value(move);
@@ -194,5 +253,7 @@ bool GameEngine::_is_winning_move(const Point& move) const {
             }
         }
     }
+    
     return false;
 }
+
