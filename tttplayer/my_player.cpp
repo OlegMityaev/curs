@@ -16,6 +16,7 @@ Point RandomPlayer::play(const GameView& game) {
             .y = rand_int(b.min.y, b.max.y),
         };
     } while(game.get_state().field->get_value(result) != Mark::None);
+    system("cls");
     return result;
 }
 
@@ -72,14 +73,16 @@ inline void MyPlayer::init(const GameView& game) {
     delta = ((m_height * m_width) > 25) ? 2 : 1; // для ограничения квадратов
     winLength = delta * 2 + 1; // для определения победы в ограниченном квадрате
     size_min_field = winLength * winLength;
+    antiWinMove = Point(m_minx - 10, m_miny - 10);
 }
 
 bool MyPlayer::is_win(const GameView& game, const Mark& value,
-    int iter, const int& size_of_field, const bool crosses_cur[], const bool filled_cur[]) const {
+    int iter, const int& size_of_field, const bool crosses_cur[], const bool filled_cur[]) {
     int width = winLength;
     int height = width;
     int minx, maxx;
     int miny, maxy;
+    
 
     if (width != m_width || height != m_height) {
         
@@ -98,6 +101,7 @@ bool MyPlayer::is_win(const GameView& game, const Mark& value,
     Point move = Point(iter % width + minx, iter / width + miny);
     std::map<Point, Mark> myField;
     int it = 0;
+
     for (int y = miny; y <= maxy; ++y) {
         for (int x = minx; x <= maxx; ++x) {
             if (filled_cur[it] == false) myField[Point(x, y)] = Mark::None;
@@ -122,7 +126,7 @@ bool MyPlayer::is_win(const GameView& game, const Mark& value,
                 p.x += dx;
                 p.y += dy;
                 ++max_forward;
-            } while (max_forward <= winLength
+            } while (max_forward <= winLength 
                 && p.x >= minx && p.x <= maxx && p.y >= miny && p.y <= maxy
                 && myField[p] == value);
 
@@ -135,8 +139,16 @@ bool MyPlayer::is_win(const GameView& game, const Mark& value,
                 && p.x >= minx && p.x <= maxx && p.y >= miny && p.y <= maxy
                 && myField[p] == value);
 
-            if (max_forward + max_backward - 1 >= winLength) {
-                return true;
+            if (value != myMark) {
+                if (max_forward + max_backward - 1 >= winLength - 1) {
+                    antiWinMove = move;
+                    return true;
+                }
+            }
+            else {
+                if (max_forward + max_backward - 1 >= winLength) {
+                    return true;
+                }
             }
         }
     }
@@ -144,9 +156,10 @@ bool MyPlayer::is_win(const GameView& game, const Mark& value,
     return false;
 }
 
-int MyPlayer::evaluate(const GameView& game, int depth, const int& size_of_field, const bool crosses_cur[], const bool filled_cur[]) {
-    int score = 0;
-
+int MyPlayer::evaluate(const GameView& game, Mark value, const int& size_of_field, const bool crosses_cur[], const bool filled_cur[]) {
+    
+    int myScore = 0;
+    int otherScore = 0;
 
     int width = winLength;
     int height = width;
@@ -167,45 +180,64 @@ int MyPlayer::evaluate(const GameView& game, int depth, const int& size_of_field
         maxy = m_maxy;
     }
 
-    auto checkLine = [&](int itStart, int dx, int dy, bool isCross) -> int {
+    
+    auto checkLine = [&](int dx, int dy, bool isCross) -> int {
         int count = 0;
         int lineScore = 0;
         for (int i = 0; i < winLength; ++i) {
-            int iter = itStart + i * dx + width * dy;
+            int iter = i + dx + width * dy;
             if (iter >= size_of_field || iter < 0) break;
             Point p = Point(iter % width + minx, iter / width + miny);
             if (!game.get_state().field->get_current_boundary().is_within(p)) break;
             if (filled_cur[iter] && (crosses_cur[iter] == isCross)) {
                 count++;
-                lineScore += 10; // Более весомый балл за каждую свою метку в линии
+                lineScore += 1; // Более весомый балл за каждую свою метку в линии
             }
             else if (filled_cur[iter] && (crosses_cur[iter] != isCross)) {
                 return 0; // Линия блокирована, оценка 0
             }
+            else if (!filled_cur[iter]) break;
             myCount++;
         }
-        
-        return count == winLength ? 100 : lineScore;
+
+        return count == winLength - 1 ? 100 : lineScore;
+
     };
     
     for (int itStart = 0; itStart < size_of_field; ++itStart) {
         if (filled_cur[itStart]) {
-            if (crosses_cur[itStart]) {
-                score += checkLine(itStart, 1, 0, true); // Горизонтально
-                score += checkLine(itStart, 0, 1, true); // Вертикально
-                score += checkLine(itStart, 1, 1, true); // Диагональ "\"
-                score += checkLine(itStart, 1, -1, true); // Диагональ /
+            if (myMark == Mark::Cross) {
+                if (crosses_cur[itStart]) {
+                    myScore += checkLine(1, 0, true); // Горизонтально
+                    myScore += checkLine(0, 1, true); // Вертикально
+                    myScore += checkLine(1, 1, true); // Диагональ "\"
+                    myScore += checkLine(1, -1, true); // Диагональ /
+                }
+                else {
+                    otherScore += checkLine(1, 0, false); // Горизонтально
+                    otherScore += checkLine(0, 1, false); // Вертикально
+                    otherScore += checkLine(1, 1, false); // Диагональ "\"
+                    otherScore += checkLine(1, -1, false); // Диагональ /
+                }
             }
-            else {
-                score -= checkLine(itStart, 1, 0, false); // Горизонтально
-                score -= checkLine(itStart, 0, 1, false); // Вертикально
-                score -= checkLine(itStart, 1, 1, false); // Диагональ "\"
-                score -= checkLine(itStart, 1, -1, false); // Диагональ /
+            else if (myMark == Mark::Zero) {
+                if (!crosses_cur[itStart]) {
+                    myScore += checkLine(1, 0, false); // Горизонтально
+                    myScore += checkLine(0, 1, false); // Вертикально
+                    myScore += checkLine(1, 1, false); // Диагональ "\"
+                    myScore += checkLine(1, -1, false); // Диагональ /
+                }
+                else {
+                    otherScore += checkLine(1, 0, true); // Горизонтально
+                    otherScore += checkLine(0, 1, true); // Вертикально
+                    otherScore += checkLine(1, 1, true); // Диагональ "\"
+                    otherScore += checkLine(1, -1, true); // Диагональ /
+                }
             }
         }
     }
     
-    return score;
+    return myScore - otherScore;
 }
 
 
@@ -227,7 +259,14 @@ int MyPlayer::minimax(const GameView& game, bool is_maximizing, int depth, int i
         if (is_draw) return 0;
     }
     if (size_of_field >= 25) {
-        if (depth > 0) return evaluate(game, depth, size_of_field, crosses_cur, filled_cur);
+        if (depth > 0) {
+            if (is_maximizing) {
+                return -evaluate(game, otherMark, size_of_field, crosses_cur, filled_cur);
+            }
+            else {
+                return evaluate(game, otherMark, size_of_field, crosses_cur, filled_cur);
+            }
+        }
     }
 
     if (is_maximizing) {
@@ -252,7 +291,7 @@ int MyPlayer::minimax(const GameView& game, bool is_maximizing, int depth, int i
         for (int i = 0; i < size_of_field; ++i) {
             if (!filled_cur[i]) {
                 filled_cur[i] = true;
-                crosses_cur[i] = !(myMark == Mark::Cross);
+                crosses_cur[i] = (myMark != Mark::Cross);
                 int eval = minimax(game, true, depth + 1, i, crosses_cur, filled_cur, size_of_field, alpha, beta);
                 filled_cur[i] = false;
                 crosses_cur[i] = false;
@@ -288,7 +327,7 @@ Point MyPlayer::play(const GameView& game) {
             iter++;
         }
     }
-
+    clock_t end = 0;
     myCount = 0;
     iter = 0;
     int bestValueNew = -10000;
@@ -300,6 +339,7 @@ Point MyPlayer::play(const GameView& game) {
                 filled_cur[i] = true;
                 crosses_cur[i] = myMark == Mark::Cross ? true : false;
                 int val = minimax(game, false, 0, i, crosses_cur, filled_cur, size_of_field, -10000, 10000);
+                
                 if (val > bestValue) {
                     bestMove = Point(i % m_width + m_minx, i / m_width + m_miny);
                     bestValue = val;
@@ -348,6 +388,15 @@ Point MyPlayer::play(const GameView& game) {
                                 filled_min[temp_iter] = true;
                                 crosses_min[temp_iter] = (myMark == Mark::Cross);
                                 int moveValue = minimax(game, false, 0, temp_iter, crosses_min, filled_min, size_min_field, -10000, 10000);
+                                if (antiWinMove.x >= m_minx) {
+                                    antiWinMove = Point(antiWinMove.x + mid_x, antiWinMove.y + mid_y);
+                                    end = clock();
+                                    std::cout << "Time for move: " << (double)(end - start) / CLOCKS_PER_SEC * 1000 << " ms, iterations: " << myCount << std::endl;
+                                    lastMove = bestMove;
+                                    moves_count += 2;
+                                    system("cls");
+                                    return antiWinMove;
+                                }
                                 filled_min[temp_iter] = false;
                                 crosses_min[temp_iter] = false;
                                 if (moveValue > bestValueNew) {
@@ -371,7 +420,7 @@ Point MyPlayer::play(const GameView& game) {
     }
     delete[] filled_cur;
     delete[] crosses_cur;
-    clock_t end = clock();
+    end = clock();
     
     std::cout << "Time for move: " << (double)(end - start) / CLOCKS_PER_SEC * 1000 << " ms, iterations: " << myCount << std::endl;
     lastMove = bestMove;

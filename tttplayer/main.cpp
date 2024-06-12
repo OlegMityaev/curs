@@ -17,8 +17,8 @@ int main() {
     /// Create setting for game
     GameSettings settings = {
         .field_size = {
-            .min = {.x = -20, .y = -20},
-            .max = {.x = 20, .y = 20},
+            .min = {.x = -5, .y = -5},
+            .max = {.x = 5, .y = 5},
         },
         .max_moves = 0,
         .win_length = 5,
@@ -31,15 +31,15 @@ int main() {
     /// Adds observer to the view of this game engine
     game.get_view().add_observer(obs);
     /// Creates first player
-    //RandomPlayer player1("Vasya");
-    MyPlayer player1("Oleg");
+    RandomPlayer player1("Vasya");
+    //MyPlayer player1("Oleg");
     //RealPlayer player1("Real1");
     /// Adds it to play Xs
     game.set_player(player1);
     /// Create second player
     //RandomPlayer player2("Kolya");
-    RealPlayer player2("Real2");
-    //MyPlayer player2("I am");
+    //RealPlayer player2("Real2");
+    MyPlayer player2("I am");
     /// Adds it to play Os
     game.set_player(player2);
     /// Starts game until someone wins.
